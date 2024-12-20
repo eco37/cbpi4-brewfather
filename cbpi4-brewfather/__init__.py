@@ -33,6 +33,7 @@ class CustomSensor(CBPiExtension):
         logger.info('Starting Brewfather background task')
         print('Starting Brewfather background task')
 
+
         await asyncio.sleep(5)
         while True:
             await self.brewfather_settings()
@@ -59,7 +60,8 @@ class CustomSensor(CBPiExtension):
                     logger.warning("Fermenter does not have a name. Give the fermenter a name for brewfather plugin to work!")
                     continue
                 
-                values["name"] = fermenter.name
+                values["name"] = fermenter.name.strip().replace(" ", "_")
+                print(values["name"])
 
                 logger.info("NAME")
                 logger.info(fermenter.sensor)
@@ -80,7 +82,6 @@ class CustomSensor(CBPiExtension):
                 except Exception as e:
                     logger.error("Error Temp: " + str(e))
 
-                
                 logger.info("MID")
 
                 logger.info(fermenter.pressure_sensor)
@@ -135,6 +136,8 @@ class CustomSensor(CBPiExtension):
                 elif cooler_state and heater_state:
                     values["device_state"] = "Heating and Cooling!!!"
 
+                values["device_source"] = "CBPi"
+                
                 logger.info(json.dumps(values))
 
                 logger.info("DONE")
@@ -152,6 +155,91 @@ class CustomSensor(CBPiExtension):
                 except BaseException as error:
                     logger.error("Brewfather Error: Unable to send message." + str(error))
                     pass
+                
+                logger.info("Collecting TILT Data")
+
+                tilts = {}
+                for s in self.cbpi.sensor.data:
+                    if s.type == "TILT Pro":
+                        print(s.name)
+                        t = self.cbpi.sensor.find_by_id(s.id)
+                        #print(t.props.__dict__)
+
+                        color = t.props["Sensor color"]
+                        if not color or color == "" or color == None:
+                            continue
+
+                        print("GET VALUE")
+                        data_type = t.props["Data Type"]
+                        if not data_type or data_type == "" or data_type == None:
+                            continue
+                        
+                        print("GET VALUE")
+                        gravity_unit = t.props["Gravity Units"]
+                        if not gravity_unit or gravity_unit == "" or gravity_unit == None:
+                            continue
+
+                        print("GET VALUE")
+                        if color not in tilts:
+                            tilts[color] = {}
+
+                        print("GET VALUE")
+                        value = self.cbpi.sensor.get_sensor_value(s.id)
+                        print("Value {}".format(value))
+                        if value and value != "" and value != None:
+                            value = value["value"]
+                            tilts[color][data_type] = value
+                            if data_type == "Gravity":
+                                tilts[color]["gravity_unit"] = gravity_unit  
+
+                print(tilts)
+                values = {}
+                for color, data in tilts.items():
+                    values["name"] = "Tilt_{}".format(color)
+
+                    if "Gravity" in data:
+                        gravity = data["Gravity"]
+                        
+                        if "gravity_unit" in data:
+                            unit = data["gravity_unit"]
+                            if unit == "SG":
+                                values["gravity_unit"] = "G"
+                            elif unit == "Plato":
+                                values["gravity_unit"] = "P"
+                            elif unit == "Brix":
+                                values["gravity_unit"] = "G"
+                                gravity = round((gravity/(258.6-((gravity/258.2)*227.1)))+1, 3)
+                            else:
+                                values["gravity_unit"] = "G"
+                    
+                        else:
+                            values["gravity_unit"] = "G"
+
+                        values["gravity"] = gravity
+
+                    if "Temperature" in data:
+                        values["temp"] = data["Temperature"]
+
+                    if "temp" in values or "gravity" in values:
+                        values["device_source"] = "Tilt Pro"
+
+                        try:
+                            queryString = {
+                              "id": brewfather_id
+                            }
+                            
+                            response = requests.post(brewfather_url, params=queryString, json=values)
+
+                            if response.status_code != 200:
+                                logger.error("Brewfather Error: Received unsuccessful response. Ensure Id is correct. HTTP Error Code: " + str(response.status_code))
+
+                        except BaseException as error:
+                            logger.error("Brewfather Error: Unable to send message." + str(error))
+                            pass
+                    
+                print(values)
+
+
 
             await asyncio.sleep(900)
     
