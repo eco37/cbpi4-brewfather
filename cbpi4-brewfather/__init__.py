@@ -175,8 +175,8 @@ class CustomSensor(CBPiExtension):
                         continue
                     
                     print("GET VALUE")
-                    gravity_unit = t.props["Gravity Units"]
                     if data_type == "Gravity":
+                        gravity_unit = t.props["Gravity Units"]
                         if not gravity_unit or gravity_unit == "" or gravity_unit == None:
                             continue
 
