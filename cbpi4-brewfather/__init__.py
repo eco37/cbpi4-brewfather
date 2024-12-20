@@ -61,7 +61,7 @@ class CustomSensor(CBPiExtension):
                     continue
                 
                 values["name"] = fermenter.name.strip().replace(" ", "_")
-                print(values["name"])
+                #print(values["name"])
 
                 logger.info("NAME")
                 logger.info(fermenter.sensor)
@@ -161,7 +161,7 @@ class CustomSensor(CBPiExtension):
             tilts = {}
             for s in self.cbpi.sensor.data:
                 if s.type == "TILT Pro":
-                    print(s.name)
+                    #print(s.name)
                     t = self.cbpi.sensor.find_by_id(s.id)
                     #print(t.props.__dict__)
 
@@ -169,31 +169,31 @@ class CustomSensor(CBPiExtension):
                     if not color or color == "" or color == None:
                         continue
 
-                    print("GET VALUE")
+                    #print("GET VALUE")
                     data_type = t.props["Data Type"]
                     if not data_type or data_type == "" or data_type == None:
                         continue
                     
-                    print("GET VALUE")
+                    #print("GET VALUE")
                     if data_type == "Gravity":
                         gravity_unit = t.props["Gravity Units"]
                         if not gravity_unit or gravity_unit == "" or gravity_unit == None:
                             continue
 
-                    print("GET VALUE")
+                    #print("GET VALUE")
                     if color not in tilts:
                         tilts[color] = {}
 
-                    print("GET VALUE")
+                    #print("GET VALUE")
                     value = self.cbpi.sensor.get_sensor_value(s.id)
-                    print("Value {}".format(value))
+                    #print("Value {}".format(value))
                     if value and value != "" and value != None:
                         value = value["value"]
                         tilts[color][data_type] = value
                         if data_type == "Gravity":
                             tilts[color]["gravity_unit"] = gravity_unit  
 
-            print(tilts)
+            #print(tilts)
             values = {}
             for color, data in tilts.items():
                 values["name"] = "Tilt_{}".format(color)
