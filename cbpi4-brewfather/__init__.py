@@ -53,8 +53,95 @@ class CustomSensor(CBPiExtension):
             heater_state = None
             cooler_state = None
 
-            values = {}
+            logger.info("Collecting TILT Data")
+
+            tilts = {}
+            for s in self.cbpi.sensor.data:
+                if s.type == "TILT Pro":
+                    #print(s.name)
+                    t = self.cbpi.sensor.find_by_id(s.id)
+                    #print(t.props.__dict__)
+
+                    color = t.props["Sensor color"]
+                    if not color or color == "" or color == None:
+                        continue
+
+                    #print("GET VALUE")
+                    data_type = t.props["Data Type"]
+                    if not data_type or data_type == "" or data_type == None:
+                        continue
+
+                    #print("GET VALUE")
+                    if data_type == "Gravity":
+                        gravity_unit = t.props["Gravity Units"]
+                        if not gravity_unit or gravity_unit == "" or gravity_unit == None:
+                            continue
+
+                    #print("GET VALUE")
+                    if color not in tilts:
+                        tilts[color] = {}
+
+                    #print("GET VALUE")
+                    value = self.cbpi.sensor.get_sensor_value(s.id)
+                    #print("Value {}".format(value))
+                    if value and value != "" and value != None:
+                        value = value["value"]
+                        tilts[color][data_type] = value
+                        if data_type == "Gravity":
+                            tilts[color]["gravity_unit"] = gravity_unit
+
+            #print(tilts)
+            for color, data in tilts.items():
+                values = {}
+                values["name"] = "Tilt_{}".format(color)
+
+                if "Gravity" in data:
+                    gravity = data["Gravity"]
+
+                    if "gravity_unit" in data:
+                        unit = data["gravity_unit"]
+                        if unit == "SG":
+                            values["gravity_unit"] = "G"
+                        elif unit == "Plato":
+                            values["gravity_unit"] = "P"
+                        elif unit == "Brix":
+                            values["gravity_unit"] = "G"
+                            gravity = round((gravity/(258.6-((gravity/258.2)*227.1)))+1, 3)
+                        else:
+                            values["gravity_unit"] = "G"
+
+                    else:
+                        values["gravity_unit"] = "G"
+
+                    values["gravity"] = gravity
+
+                if "Temperature" in data:
+                    values["temp"] = data["Temperature"]
+
+                if "temp" in values or "gravity" in values:
+                    values["device_source"] = "Tilt Pro"
+
+                try:
+                    queryString = {
+                        "id": brewfather_id
+                    }
+
+                    response = requests.post(brewfather_url, params=queryString, json=values)
+
+                    if response.status_code != 200:
+                        logger.error("Brewfather Error: Received unsuccessful response. Ensure Id is correct. HTTP Error Code: " + str(response.status_code))
+
+                except BaseException as error:
+                    logger.error("Brewfather Error: Unable to send message." + str(error))
+                    pass
+
+                print(values)
+
+
+
             for fermenter in self.cbpi.fermenter.data:
+                values = {}
+
                 logger.info("Fermenter")
                 if fermenter.name == None or fermenter.name.strip() == "":
                     logger.warning("Fermenter does not have a name. Give the fermenter a name for brewfather plugin to work!")
@@ -155,90 +242,6 @@ class CustomSensor(CBPiExtension):
                 except BaseException as error:
                     logger.error("Brewfather Error: Unable to send message." + str(error))
                     pass
-                
-            logger.info("Collecting TILT Data")
-
-            tilts = {}
-            for s in self.cbpi.sensor.data:
-                if s.type == "TILT Pro":
-                    #print(s.name)
-                    t = self.cbpi.sensor.find_by_id(s.id)
-                    #print(t.props.__dict__)
-
-                    color = t.props["Sensor color"]
-                    if not color or color == "" or color == None:
-                        continue
-
-                    #print("GET VALUE")
-                    data_type = t.props["Data Type"]
-                    if not data_type or data_type == "" or data_type == None:
-                        continue
-                    
-                    #print("GET VALUE")
-                    if data_type == "Gravity":
-                        gravity_unit = t.props["Gravity Units"]
-                        if not gravity_unit or gravity_unit == "" or gravity_unit == None:
-                            continue
-
-                    #print("GET VALUE")
-                    if color not in tilts:
-                        tilts[color] = {}
-
-                    #print("GET VALUE")
-                    value = self.cbpi.sensor.get_sensor_value(s.id)
-                    #print("Value {}".format(value))
-                    if value and value != "" and value != None:
-                        value = value["value"]
-                        tilts[color][data_type] = value
-                        if data_type == "Gravity":
-                            tilts[color]["gravity_unit"] = gravity_unit  
-
-            #print(tilts)
-            values = {}
-            for color, data in tilts.items():
-                values["name"] = "Tilt_{}".format(color)
-
-                if "Gravity" in data:
-                    gravity = data["Gravity"]
-                    
-                    if "gravity_unit" in data:
-                        unit = data["gravity_unit"]
-                        if unit == "SG":
-                            values["gravity_unit"] = "G"
-                        elif unit == "Plato":
-                            values["gravity_unit"] = "P"
-                        elif unit == "Brix":
-                            values["gravity_unit"] = "G"
-                            gravity = round((gravity/(258.6-((gravity/258.2)*227.1)))+1, 3)
-                        else:
-                            values["gravity_unit"] = "G"
-                
-                    else:
-                        values["gravity_unit"] = "G"
-
-                    values["gravity"] = gravity
-
-                if "Temperature" in data:
-                    values["temp"] = data["Temperature"]
-
-                if "temp" in values or "gravity" in values:
-                    values["device_source"] = "Tilt Pro"
-
-                    try:
-                        queryString = {
-                          "id": brewfather_id
-                        }
-                        
-                        response = requests.post(brewfather_url, params=queryString, json=values)
-
-                        if response.status_code != 200:
-                            logger.error("Brewfather Error: Received unsuccessful response. Ensure Id is correct. HTTP Error Code: " + str(response.status_code))
-
-                    except BaseException as error:
-                        logger.error("Brewfather Error: Unable to send message." + str(error))
-                        pass
-                    
-                print(values)
 
             await asyncio.sleep(900)
     
@@ -274,7 +277,7 @@ class CustomSensor(CBPiExtension):
         else:
             if self.brewfather_update == None or self.brewfather_update != self.version:
                 try:                
-                    await self.cbpi.config.add("brewfather_ext_temp", brewfather_ext_temp, type=ConfigType.STRING, description="Brewfather External Temp Sensor",source=self.name)
+                    await self.cbpi.config.add("brewfather_ext_temp", brewfather_ext_temp, type=ConfigType.STRING, description="Brewfather External Temp Sensor",source=self.name) # FIXME: SENSOR not STRING?
                 except Exception as e:
                     logger.warning('Unable to update config')
                     logger.error(e)
