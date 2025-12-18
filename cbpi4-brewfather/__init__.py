@@ -243,8 +243,7 @@ class CustomSensor(CBPiExtension):
                     logger.error("Brewfather Error: Unable to send message." + str(error))
                     pass
 
-            #await asyncio.sleep(900)
-            await asyncio.sleep(10)
+            await asyncio.sleep(900)
     
     async def brewfather_settings(self):
         global brewfather_id
