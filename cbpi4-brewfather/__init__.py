@@ -135,7 +135,7 @@ class CustomSensor(CBPiExtension):
                     logger.error("Brewfather Error: Unable to send message." + str(error))
                     pass
 
-                print(values)
+                #print(values)
 
 
 
